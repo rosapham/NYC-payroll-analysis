@@ -21,7 +21,7 @@ As a Data Engineer, our role is to develop high-quality data pipelines that are 
 
 The source data is stored in Azure Data Lake and needs to be processed into a NYC data warehouse. The datasets include CSV files containing Employee master data and monthly payroll data submitted by various City agencies.
 
-## Project Configuration
+## Project Workflow
 
 1. <b>Create Azure resources:</b>
 
