@@ -1,0 +1,171 @@
+{
+    "name": "dataflow_summary",
+    "properties": {
+        "type": "MappingDataFlow",
+        "typeProperties": {
+            "sources": [
+                {
+                    "dataset": {
+                        "referenceName": "ds_payroll_2020_sqldb",
+                        "type": "DatasetReference"
+                    },
+                    "name": "payroll2020sqldb"
+                },
+                {
+                    "dataset": {
+                        "referenceName": "ds_payroll_2021_sqldb",
+                        "type": "DatasetReference"
+                    },
+                    "name": "payroll2021sqldb"
+                }
+            ],
+            "sinks": [
+                {
+                    "dataset": {
+                        "referenceName": "ds_payroll_summary_sqldb",
+                        "type": "DatasetReference"
+                    },
+                    "name": "sinksummarysqldb"
+                },
+                {
+                    "linkedService": {
+                        "referenceName": "ls_adlsgen2",
+                        "type": "LinkedServiceReference"
+                    },
+                    "name": "sinksummaryadlsgen2"
+                }
+            ],
+            "transformations": [
+                {
+                    "name": "selectpayroll2020"
+                },
+                {
+                    "name": "unionpayroll2021"
+                },
+                {
+                    "name": "filterFiscalYear"
+                },
+                {
+                    "name": "TotalPaidColumn"
+                },
+                {
+                    "name": "aggregate1"
+                },
+                {
+                    "name": "selectpayroll2021"
+                }
+            ],
+            "scriptLines": [
+                "parameters{",
+                "     dataflow_param_fiscalyear as integer (2020)",
+                "}",
+                "source(output(",
+                "          FiscalYear as integer,",
+                "          PayrollNumber as integer,",
+                "          AgencyID as string,",
+                "          AgencyName as string,",
+                "          EmployeeID as string,",
+                "          LastName as string,",
+                "          FirstName as string,",
+                "          AgencyStartDate as date,",
+                "          WorkLocationBorough as string,",
+                "          TitleCode as string,",
+                "          TitleDescription as string,",
+                "          LeaveStatusasofJune30 as string,",
+                "          BaseSalary as double,",
+                "          PayBasis as string,",
+                "          RegularHours as double,",
+                "          RegularGrossPaid as double,",
+                "          OTHours as double,",
+                "          TotalOTPaid as double,",
+                "          TotalOtherPay as double",
+                "     ),",
+                "     allowSchemaDrift: true,",
+                "     validateSchema: false,",
+                "     isolationLevel: 'READ_UNCOMMITTED',",
+                "     format: 'table') ~> payroll2020sqldb",
+                "source(output(",
+                "          FiscalYear as integer,",
+                "          PayrollNumber as integer,",
+                "          AgencyCode as string,",
+                "          AgencyName as string,",
+                "          EmployeeID as string,",
+                "          LastName as string,",
+                "          FirstName as string,",
+                "          AgencyStartDate as date,",
+                "          WorkLocationBorough as string,",
+                "          TitleCode as string,",
+                "          TitleDescription as string,",
+                "          LeaveStatusasofJune30 as string,",
+                "          BaseSalary as double,",
+                "          PayBasis as string,",
+                "          RegularHours as double,",
+                "          RegularGrossPaid as double,",
+                "          OTHours as double,",
+                "          TotalOTPaid as double,",
+                "          TotalOtherPay as double",
+                "     ),",
+                "     allowSchemaDrift: true,",
+                "     validateSchema: false,",
+                "     isolationLevel: 'READ_UNCOMMITTED',",
+                "     format: 'table') ~> payroll2021sqldb",
+                "payroll2020sqldb select(mapColumn(",
+                "          FiscalYear,",
+                "          AgencyName,",
+                "          RegularGrossPaid,",
+                "          TotalOTPaid,",
+                "          TotalOtherPay",
+                "     ),",
+                "     skipDuplicateMapInputs: true,",
+                "     skipDuplicateMapOutputs: true) ~> selectpayroll2020",
+                "selectpayroll2020, selectpayroll2021 union(byName: true)~> unionpayroll2021",
+                "unionpayroll2021 filter(toInteger(FiscalYear) >= $dataflow_param_fiscalyear) ~> filterFiscalYear",
+                "filterFiscalYear derive(TotalPaid = RegularGrossPaid+TotalOTPaid+TotalOtherPay) ~> TotalPaidColumn",
+                "TotalPaidColumn aggregate(groupBy(AgencyName,",
+                "          FiscalYear),",
+                "     TotalPaid = sum(1)) ~> aggregate1",
+                "payroll2021sqldb select(mapColumn(",
+                "          FiscalYear,",
+                "          AgencyName,",
+                "          RegularGrossPaid,",
+                "          TotalOTPaid,",
+                "          TotalOtherPay",
+                "     ),",
+                "     skipDuplicateMapInputs: true,",
+                "     skipDuplicateMapOutputs: true) ~> selectpayroll2021",
+                "aggregate1 sink(allowSchemaDrift: true,",
+                "     validateSchema: false,",
+                "     input(",
+                "          FiscalYear as integer,",
+                "          AgencyName as string,",
+                "          TotalPaid as double",
+                "     ),",
+                "     deletable:false,",
+                "     insertable:true,",
+                "     updateable:false,",
+                "     upsertable:false,",
+                "     truncate:true,",
+                "     format: 'table',",
+                "     skipDuplicateMapInputs: true,",
+                "     skipDuplicateMapOutputs: true,",
+                "     errorHandlingOption: 'stopOnFirstError') ~> sinksummarysqldb",
+                "aggregate1 sink(allowSchemaDrift: true,",
+                "     validateSchema: false,",
+                "     format: 'delimited',",
+                "     fileSystem: 'adlsnycpayroll-rosa-p',",
+                "     folderPath: 'dirstaging',",
+                "     truncate: true,",
+                "     columnDelimiter: ',',",
+                "     escapeChar: '\\\\',",
+                "     quoteChar: '\\\"',",
+                "     columnNamesAsHeader: false,",
+                "     umask: 0022,",
+                "     preCommands: [],",
+                "     postCommands: [],",
+                "     skipDuplicateMapInputs: true,",
+                "     skipDuplicateMapOutputs: true,",
+                "     saveOrder: 1) ~> sinksummaryadlsgen2"
+            ]
+        }
+    }
+}

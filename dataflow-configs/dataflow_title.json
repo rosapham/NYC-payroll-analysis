@@ -1,0 +1,50 @@
+{
+    "name": "dataflow_title",
+    "properties": {
+        "type": "MappingDataFlow",
+        "typeProperties": {
+            "sources": [
+                {
+                    "dataset": {
+                        "referenceName": "title_master",
+                        "type": "DatasetReference"
+                    },
+                    "name": "titleadlsgen2"
+                }
+            ],
+            "sinks": [
+                {
+                    "dataset": {
+                        "referenceName": "ds_title_sqldb",
+                        "type": "DatasetReference"
+                    },
+                    "name": "titlesqldb"
+                }
+            ],
+            "transformations": [],
+            "scriptLines": [
+                "source(output(",
+                "          TitleCode as string,",
+                "          TitleDescription as string",
+                "     ),",
+                "     allowSchemaDrift: true,",
+                "     validateSchema: false,",
+                "     ignoreNoFilesFound: false) ~> titleadlsgen2",
+                "titleadlsgen2 sink(allowSchemaDrift: true,",
+                "     validateSchema: false,",
+                "     input(",
+                "          TitleCode as string,",
+                "          TitleDescription as string",
+                "     ),",
+                "     deletable:false,",
+                "     insertable:true,",
+                "     updateable:false,",
+                "     upsertable:false,",
+                "     format: 'table',",
+                "     skipDuplicateMapInputs: true,",
+                "     skipDuplicateMapOutputs: true,",
+                "     errorHandlingOption: 'stopOnFirstError') ~> titlesqldb"
+            ]
+        }
+    }
+}
